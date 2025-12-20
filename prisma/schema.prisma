@@ -1,0 +1,220 @@
+// Desa Digital Map - SIG Desa Banyuputih Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  email       String   @unique
+  password    String
+  fullName    String?
+  role        Role     @default(PUBLIC)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  createdLocations Location[]
+  assignedReports  PublicReport[]
+  updatedSettings  Setting[]
+  dataLogs         DataLog[]
+}
+
+model AdministrativeBoundary {
+  id          String   @id @default(cuid())
+  name        String
+  type        BoundaryType
+  parentId    String?
+  population  Int?
+  areaKm2     Float?
+  geometry    String   // JSON string for spatial data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  parent   AdministrativeBoundary? @relation("BoundaryHierarchy", fields: [parentId], references: [id])
+  children AdministrativeBoundary[] @relation("BoundaryHierarchy")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String?
+  color       String?  // hex color
+  description String?
+  parentId    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  parent     Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   Category[] @relation("CategoryHierarchy")
+  locations  Location[]
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  address     String?
+  geometry    String       // JSON string for POINT data
+  properties  String?      // JSON string for additional properties
+  photos      String?      // JSON string for photo URLs
+  status      LocationStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Foreign keys
+  categoryId String
+  createdBy  String
+  
+  // Relations
+  category    Category       @relation(fields: [categoryId], references: [id])
+  creator     User           @relation(fields: [createdBy], references: [id])
+  dataLogs    DataLog[]
+  infrastructure Infrastructure[]
+}
+
+model Infrastructure {
+  id                   String           @id @default(cuid())
+  type                 InfrastructureType
+  condition            String?
+  lengthKm             Float?
+  widthM               Float?
+  constructionYear     Int?
+  lastMaintenanceYear  Int?
+  geometry             String           // JSON string for LINESTRING data
+  properties           String?          // JSON string for additional properties
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  
+  // Foreign keys
+  locationId String
+  
+  // Relations
+  location Location @relation(fields: [locationId], references: [id])
+}
+
+model LandUse {
+  id               String   @id @default(cuid())
+  type             LandUseType
+  areaKm2          Float?
+  ownershipStatus  String?
+  productivityLevel String?
+  geometry         String   // JSON string for POLYGON data
+  properties       String?  // JSON string for additional properties
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PublicReport {
+  id             String       @id @default(cuid())
+  reporterName   String?
+  reporterContact String?
+  title          String
+  description    String?
+  reportType     String?
+  geometry       String       // JSON string for POINT data
+  photos         String?      // JSON string for photo URLs
+  status         ReportStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  // Foreign keys
+  assignedTo String?
+  
+  // Relations
+  assignee User? @relation(fields: [assignedTo], references: [id])
+}
+
+model DataLog {
+  id         String     @id @default(cuid())
+  tableName  String
+  recordId   String
+  action     LogAction
+  oldValues  String?    // JSON string
+  newValues  String?    // JSON string
+  createdAt  DateTime   @default(now())
+  
+  // Foreign keys
+  userId String
+  locationId String?
+  
+  // Relations
+  user     User      @relation(fields: [userId], references: [id])
+  location Location? @relation(fields: [locationId], references: [id])
+}
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String?
+  description String?
+  updatedAt   DateTime @updatedAt
+  
+  // Foreign keys
+  updatedBy String?
+  
+  // Relations
+  updater User? @relation(fields: [updatedBy], references: [id])
+}
+
+// Enums
+enum Role {
+  ADMIN
+  OPERATOR
+  PUBLIC
+}
+
+enum BoundaryType {
+  DESA
+  DUSUN
+  RW
+  RT
+}
+
+enum LocationStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_CONSTRUCTION
+}
+
+enum InfrastructureType {
+  JALAN
+  JEMBATAN
+  DRAINASE
+  IRIGASI
+  GARDU_LISTRIK
+  LAMPU_JALAN
+  PIPA_AIR
+  MENARA_TELEKOMUNIKASI
+}
+
+enum LandUseType {
+  PERMUKIMAN
+  PERSAWAHAN
+  KEBUN
+  TEGALAN
+  LAHAN_KOSONG
+  HUTAN_RAKYAT
+}
+
+enum ReportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum LogAction {
+  CREATE
+  UPDATE
+  DELETE
+}
